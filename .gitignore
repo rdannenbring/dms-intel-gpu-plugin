@@ -1,0 +1,7 @@
+# Local Claude Code settings for this directory
+.claude/
+
+# Editor / OS cruft
+*.swp
+*~
+.DS_Store
