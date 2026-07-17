@@ -9,6 +9,7 @@ PluginSettings {
     id: root
 
     pluginId: "intelGpuMonitor"
+    property int currentTab: 0
 
     readonly property var chartTypeModel: [
         { "label": "Horizontal Bar", "value": "hbar" },
@@ -17,6 +18,10 @@ PluginSettings {
         { "label": "Donut", "value": "donut" },
         { "label": "Pie", "value": "pie" },
         { "label": "Thermometer", "value": "thermometer" }
+    ]
+    readonly property var labelTypeModel: [
+        { "label": "Icon", "value": "icon" },
+        { "label": "Letter", "value": "letter" }
     ]
     readonly property var actionModel: [
         { "label": "Show detail view", "value": "detail" },
@@ -86,7 +91,6 @@ PluginSettings {
         function loadValue() { value = root.loadValue(settingKey, defaultValue); }
         Component.onCompleted: loadValue()
         onToggled: checked => { value = checked; root.saveValue(settingKey, checked); }
-        // pluginService is assigned after Component.onCompleted, so reload once it exists.
         Connections { target: root; function onPluginServiceChanged() { boolCtl.loadValue(); } }
     }
 
@@ -234,9 +238,8 @@ PluginSettings {
         }
     }
 
-    // A metric block: show value / show chart (+ type) / show icon (+ picker).
-    // Extends Card, so the fixed controls below and any per-card extras added by
-    // an instance all flow into the card column, in declaration order.
+    // A metric block: value/chart toggles, chart type, in-chart label, bar width.
+    // Instances append their own extras (e.g. VRAM override, temperature range).
     component MetricCard: Card {
         id: mc
         property string metricKey: ""
@@ -265,6 +268,58 @@ PluginSettings {
             model: root.chartTypeModel
             defaultValue: mc.defaultChartType
         }
+        BoolSetting {
+            id: labelToggle
+            visible: chartToggle.value
+            settingKey: mc.metricKey + "ShowChartLabel"
+            defaultValue: false
+            text: "Show in-chart label"
+            description: "Show an icon or letter inside the chart to identify it."
+        }
+        // Indented sub-options under "Show in-chart label", with a left accent
+        // line so they clearly read as children of that toggle.
+        Item {
+            id: labelSubWrap
+            visible: chartToggle.value && labelToggle.value
+            width: parent ? parent.width : 0
+            implicitHeight: labelSub.implicitHeight
+
+            Rectangle {
+                anchors.left: parent.left
+                anchors.leftMargin: Theme.spacingXS
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                width: 2
+                radius: 1
+                color: Qt.rgba(Theme.outline.r, Theme.outline.g, Theme.outline.b, 0.6)
+            }
+            Column {
+                id: labelSub
+                x: Theme.spacingXS + Theme.spacingL
+                width: parent.width - x
+                spacing: Theme.spacingM
+
+                ChoiceSetting {
+                    id: labelTypeChoice
+                    settingKey: mc.metricKey + "ChartLabelType"
+                    label: "Label type"
+                    model: root.labelTypeModel
+                    defaultValue: "icon"
+                }
+                IconSetting {
+                    visible: labelTypeChoice.value === "icon"
+                    settingKey: mc.metricKey + "IconName"
+                    label: "Icon"
+                }
+                StringSetting {
+                    visible: labelTypeChoice.value === "letter"
+                    settingKey: mc.metricKey + "ChartLetter"
+                    label: "Letter"
+                    helpText: "1–2 characters shown inside the chart."
+                    defaultValue: mc.metricKey === "usage" ? "U" : (mc.metricKey === "vram" ? "V" : "T")
+                }
+            }
+        }
         SliderSetting {
             visible: chartToggle.value && (chartChoice.value === "bar" || chartChoice.value === "hbar")
             settingKey: mc.metricKey + "BarThickness"
@@ -274,63 +329,80 @@ PluginSettings {
             unit: "%"
             defaultValue: 35
         }
-        BoolSetting {
-            id: iconToggle
-            settingKey: mc.metricKey + "ShowIcon"
-            defaultValue: false
-            text: "Show icon in bar"
-        }
-        IconSetting {
-            visible: iconToggle.value
-            settingKey: mc.metricKey + "IconName"
-            label: "Custom icon"
-        }
     }
 
     // ====================================================================
-    // Content
+    // Tabs
     // ====================================================================
-    Card {
-        title: "How it works"
-        subtitle: "No installation or special permissions required."
+    DankTabBar {
+        width: parent.width
+        tabHeight: 48
+        currentIndex: root.currentTab
+        model: [
+            { "text": "General", "icon": "tune" },
+            { "text": "Usage", "icon": "speed" },
+            { "text": "VRAM", "icon": "memory" },
+            { "text": "Temp", "icon": "device_thermostat" },
+            { "text": "Actions", "icon": "mouse" }
+        ]
+        onTabClicked: index => root.currentTab = index
+    }
 
-        StyledText {
-            width: parent.width
-            text: "Usage, VRAM and the per-process list are read from the kernel's DRM fdinfo (per-process GPU engine and memory counters), filtered to the Intel GPU. Temperature and frequency come from sysfs. Nothing needs elevated access, and reading these does not wake the GPU."
-            font.pixelSize: Theme.fontSizeSmall
-            color: Theme.surfaceText
-            wrapMode: Text.WordWrap
+    // ---- Tab 0: General ---------------------------------------------------
+    Column {
+        visible: root.currentTab === 0
+        width: parent.width
+        spacing: Theme.spacingM
+
+        Card {
+            title: "How it works"
+            subtitle: "No installation or special permissions required."
+
+            StyledText {
+                width: parent.width
+                text: "Usage, VRAM and the per-process list are read from the kernel's DRM fdinfo (per-process GPU engine and memory counters), filtered to the Intel GPU. Temperature and frequency come from sysfs. Nothing needs elevated access, and reading these does not wake the GPU."
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.surfaceText
+                wrapMode: Text.WordWrap
+            }
+            StyledText {
+                width: parent.width
+                text: "intel_gpu_top (from intel-gpu-tools) is only used for the optional “open in terminal” action, if you enable it. It is not required for the widget."
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.surfaceVariantText
+                wrapMode: Text.WordWrap
+            }
         }
-        StyledText {
-            width: parent.width
-            text: "intel_gpu_top (from intel-gpu-tools) is only used for the optional “open in terminal” action, if you enable it. It is not required for the widget."
-            font.pixelSize: Theme.fontSizeSmall
-            color: Theme.surfaceVariantText
-            wrapMode: Text.WordWrap
+
+        Card {
+            title: "General"
+
+            SliderSetting {
+                settingKey: "pollInterval"
+                label: "Refresh interval (ms)"
+                minimum: 500
+                maximum: 30000
+                unit: "ms"
+                defaultValue: 2000
+            }
+            StyledText {
+                width: parent.width
+                text: "How often the metrics refresh. Each refresh does one lightweight scan of /proc; a longer interval (e.g. 5000+) is lighter — worth raising if your GPU has little headroom."
+                font.pixelSize: Theme.fontSizeSmall
+                color: Theme.surfaceVariantText
+                wrapMode: Text.WordWrap
+            }
+        }
+
+        Card {
+            title: "Backlog"
+            subtitle: "Planned: per-value thresholds to drive icon changes, color changes and alert messages. Not yet implemented."
         }
     }
 
-    Card {
-        title: "General"
-
-        SliderSetting {
-            settingKey: "pollInterval"
-            label: "Refresh interval (ms)"
-            minimum: 500
-            maximum: 30000
-            unit: "ms"
-            defaultValue: 2000
-        }
-        StyledText {
-            width: parent.width
-            text: "How often the metrics refresh. Each refresh does one lightweight scan of /proc; a longer interval (e.g. 5000+) is lighter — worth raising if your GPU has little headroom."
-            font.pixelSize: Theme.fontSizeSmall
-            color: Theme.surfaceVariantText
-            wrapMode: Text.WordWrap
-        }
-    }
-
+    // ---- Tab 1: GPU Usage -------------------------------------------------
     MetricCard {
+        visible: root.currentTab === 1
         title: "GPU Usage"
         metricKey: "usage"
         defaultChartType: "gauge"
@@ -346,7 +418,9 @@ PluginSettings {
         }
     }
 
+    // ---- Tab 2: VRAM ------------------------------------------------------
     MetricCard {
+        visible: root.currentTab === 2
         title: "VRAM Usage"
         metricKey: "vram"
         defaultChartType: "bar"
@@ -369,7 +443,9 @@ PluginSettings {
         }
     }
 
+    // ---- Tab 3: Temperature ----------------------------------------------
     MetricCard {
+        visible: root.currentTab === 3
         title: "Temperature"
         metricKey: "temp"
         defaultChartType: "thermometer"
@@ -410,7 +486,9 @@ PluginSettings {
         }
     }
 
+    // ---- Tab 4: Interaction ----------------------------------------------
     Card {
+        visible: root.currentTab === 4
         title: "Interaction"
 
         ChoiceSetting {
@@ -444,10 +522,5 @@ PluginSettings {
             helpText: "Leave blank to use your default terminal ($TERMINAL). Launched as: <terminal> <flag> intel_gpu_top — the run flag (-e, --, start --) is chosen automatically for known terminals."
             defaultValue: ""
         }
-    }
-
-    Card {
-        title: "Backlog"
-        subtitle: "Planned: per-value thresholds to drive icon changes, color changes and alert messages. Not yet implemented."
     }
 }

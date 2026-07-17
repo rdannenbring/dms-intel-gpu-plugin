@@ -40,7 +40,7 @@ Then enable **Intel GPU Monitor** in DMS Settings → Plugins and add it to a ba
 - **GPU usage %** in the bar (toggle), with a chart (toggle) — chart type: bar, gauge, donut, pie or thermometer. Charts are GPU-drawn (`QtQuick.Shapes` / rectangles, no CPU `Canvas`); *bar* is the lightest.
 - **Temperature** value in the bar (toggle), with a chart (toggle) — same chart types, configurable °C range.
 - **VRAM %** in the bar (toggle) — off by default; see the note below.
-- Per-status **icons** (toggle) with a **custom icon** picker for each.
+- **In-chart label** (toggle, per metric): show an **icon** (custom picker) or a **letter** inside/above each chart to identify it — centered in gauge/donut, above the element on bars/thermometer.
 - Configurable **mouse actions** (left / right / middle), each: detail view, menu, open in terminal, or nothing. Defaults: left = detail, right = menu, middle = nothing.
 - **Open intel_gpu_top in a terminal** — defaults to your `$TERMINAL`; the run flag is chosen automatically for known terminals.
 - **Detail view**: large charts for the enabled metrics, a per-engine breakdown, and a table of processes using the GPU — Process, GPU %, VRAM (MB), VRAM %, PID.
@@ -68,7 +68,7 @@ chart type or numbers only.
 ## Settings overview
 
 - **General**: refresh interval.
-- **GPU Usage / Temperature / VRAM**: show value, show chart (+ chart type), show icon (+ custom icon), plus per-metric extras (temperature source GPU & range, VRAM override).
+- **GPU Usage / VRAM / Temperature** (each on its own tab): show value, show chart (+ chart type & bar width), in-chart label (icon or letter), plus per-metric extras (temperature source GPU & range, VRAM override).
 - **Interaction**: left / right / middle click actions, terminal launcher toggle and terminal command.
 
 ## Backlog

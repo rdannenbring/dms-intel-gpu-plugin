@@ -83,7 +83,30 @@ PluginComponent {
     function showChart(m) { return pv(m + "ShowChart", m === "usage"); }
     function chartType(m) { return String(pv(m + "ChartType", defaultChartType(m))); }
     function barWidthFraction(m) { return Math.max(0.02, Math.min(1, Number(pv(m + "BarThickness", 35)) / 100)); }
-    function showIcon(m) { return pv(m + "ShowIcon", false); }
+    // In-chart label: a single toggle + type (icon | letter). Replaces the old
+    // separate "show icon" and the none/icon/letter dropdown.
+    function showChartLabel(m) { return pv(m + "ShowChartLabel", false); }
+    function chartLabelType(m) { return String(pv(m + "ChartLabelType", "icon")); }
+    function defaultLetter(m) {
+        switch (m) {
+        case "usage": return "U";
+        case "vram": return "V";
+        case "temp": return "T";
+        }
+        return "?";
+    }
+    function chartLetter(m) {
+        const s = String(pv(m + "ChartLetter", defaultLetter(m))).trim();
+        return s.length > 0 ? s.slice(0, 2) : defaultLetter(m);
+    }
+    function chartLabelIcon(m) { return (showChartLabel(m) && chartLabelType(m) === "icon") ? iconName(m) : ""; }
+    function chartLabelText(m) { return (showChartLabel(m) && chartLabelType(m) === "letter") ? chartLetter(m) : ""; }
+    // Round charts (gauge/donut/pie) have an empty center for the label; the linear
+    // ones (bar/hbar/thermometer) put the label above the element instead.
+    function chartIsRound(m) {
+        const t = chartType(m);
+        return t === "gauge" || t === "donut" || t === "pie";
+    }
     function iconName(m) {
         const custom = String(pv(m + "IconName", "")).trim();
         return custom.length > 0 ? custom : defaultIcon(m);

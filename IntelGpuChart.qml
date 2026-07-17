@@ -1,5 +1,7 @@
 import QtQuick
 import QtQuick.Shapes
+import qs.Common
+import qs.Widgets
 
 // Reusable 0..1 progress chart: bar | gauge | donut | pie | thermometer.
 // Uses cheap Rectangles (bar/thermometer) and GPU-accelerated QtQuick.Shapes
@@ -13,8 +15,14 @@ Item {
     property color trackColor: Qt.rgba(fillColor.r, fillColor.g, fillColor.b, 0.18)
     property real lineWidth: Math.max(2, Math.round(Math.min(width, height) * 0.12))
     property real barThickness: 0.35     // 0..1 cross-axis thickness for bar / hbar
+    property string labelIcon: ""        // Material Symbol name shown inside the chart
+    property string labelText: ""        // 1–2 char letter shown inside the chart
+    property bool labelTop: false        // anchor the label to the top (linear types) vs center
 
     readonly property real p: Math.max(0, Math.min(1, progress))
+    // gauge/donut have empty centers → use the accent; the filled/linear types put
+    // the element through the center → use the neutral text color for legibility.
+    readonly property bool _labelHollow: chartType === "gauge" || chartType === "donut"
 
     Loader {
         anchors.fill: parent
@@ -27,6 +35,35 @@ Item {
             case "donut": return donutComp;
             default: return gaugeComp;
             }
+        }
+    }
+
+    // ---- In-chart label (icon or letter), centered -------------------------
+    Item {
+        anchors.fill: parent
+        visible: root.labelIcon.length > 0 || root.labelText.length > 0
+        readonly property color lc: root._labelHollow ? root.fillColor : Theme.widgetTextColor
+
+        // Horizontal-center anchored; vertical position via explicit y so we never
+        // mix top/verticalCenter anchors (which QML can drop, dumping the item at 0,0).
+        DankIcon {
+            id: labelIconItem
+            visible: root.labelIcon.length > 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: root.labelTop ? 0 : Math.round((parent.height - height) / 2)
+            name: root.labelIcon
+            size: Math.round(Math.min(parent.width, parent.height) * (root.labelTop ? 0.42 : 0.52))
+            color: parent.lc
+        }
+        StyledText {
+            id: labelTextItem
+            visible: root.labelIcon.length === 0 && root.labelText.length > 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: root.labelTop ? 0 : Math.round((parent.height - height) / 2)
+            text: root.labelText
+            font.pixelSize: Math.round(Math.min(parent.width, parent.height) * (root.labelTop ? 0.42 : 0.5))
+            font.weight: Font.Bold
+            color: parent.lc
         }
     }
 

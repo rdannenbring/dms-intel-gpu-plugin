@@ -51,14 +51,6 @@ Item {
             anchors.centerIn: parent
             spacing: Theme.spacingXS
 
-            DankIcon {
-                visible: root.pluginRoot.showIcon(metric.metricKey)
-                anchors.verticalCenter: parent.verticalCenter
-                name: root.pluginRoot.iconName(metric.metricKey)
-                size: root.iconSize
-                color: root.pluginRoot.metricColor(metric.metricKey)
-            }
-
             IntelGpuChart {
                 visible: root.pluginRoot.showChart(metric.metricKey)
                 anchors.verticalCenter: parent.verticalCenter
@@ -68,6 +60,9 @@ Item {
                 progress: root.pluginRoot.metricProgress(metric.metricKey)
                 fillColor: root.pluginRoot.metricColor(metric.metricKey)
                 barThickness: root.pluginRoot.barWidthFraction(metric.metricKey)
+                labelIcon: root.pluginRoot.chartLabelIcon(metric.metricKey)
+                labelText: root.pluginRoot.chartLabelText(metric.metricKey)
+                labelTop: !root.pluginRoot.chartIsRound(metric.metricKey)
             }
 
             StyledText {
@@ -108,11 +103,21 @@ Item {
                 // Shared width so text-only metrics center under the wider chart ones.
                 width: root.sharedVWidth
 
+                // Stacked-above label for linear charts (vertical bar has the room);
+                // round charts show the label inside the chart instead.
                 DankIcon {
-                    visible: root.pluginRoot.showIcon(vMetric.modelData)
+                    visible: root.pluginRoot.showChart(vMetric.modelData) && !root.pluginRoot.chartIsRound(vMetric.modelData) && root.pluginRoot.chartLabelIcon(vMetric.modelData) !== ""
                     anchors.horizontalCenter: parent.horizontalCenter
-                    name: root.pluginRoot.iconName(vMetric.modelData)
-                    size: root.iconSize
+                    name: root.pluginRoot.chartLabelIcon(vMetric.modelData)
+                    size: Math.round(root.chartSize * 0.5)
+                    color: root.pluginRoot.metricColor(vMetric.modelData)
+                }
+                StyledText {
+                    visible: root.pluginRoot.showChart(vMetric.modelData) && !root.pluginRoot.chartIsRound(vMetric.modelData) && root.pluginRoot.chartLabelText(vMetric.modelData) !== ""
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    text: root.pluginRoot.chartLabelText(vMetric.modelData)
+                    font.pixelSize: Math.round(root.chartSize * 0.5)
+                    font.weight: Font.Bold
                     color: root.pluginRoot.metricColor(vMetric.modelData)
                 }
                 IntelGpuChart {
@@ -124,6 +129,8 @@ Item {
                     progress: root.pluginRoot.metricProgress(vMetric.modelData)
                     fillColor: root.pluginRoot.metricColor(vMetric.modelData)
                     barThickness: root.pluginRoot.barWidthFraction(vMetric.modelData)
+                    labelIcon: root.pluginRoot.chartIsRound(vMetric.modelData) ? root.pluginRoot.chartLabelIcon(vMetric.modelData) : ""
+                    labelText: root.pluginRoot.chartIsRound(vMetric.modelData) ? root.pluginRoot.chartLabelText(vMetric.modelData) : ""
                 }
                 StyledText {
                     visible: root.pluginRoot.showValue(vMetric.modelData)
