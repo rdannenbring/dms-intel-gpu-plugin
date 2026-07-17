@@ -48,10 +48,12 @@ Then enable **Intel GPU Monitor** in DMS Settings → Plugins and add it to a ba
 ## Performance
 
 The metrics refresh on an interval (**Refresh interval**, default 2 s). Each refresh
-is one `awk` scan of `/proc` (~100  ms of mostly disk-cache I/O, off the render
-thread) plus a couple of tiny sysfs reads. It pauses while the bar is hidden. If your
-GPU has little headroom, raise the interval (e.g. 5000 ms) and prefer the *bar* chart
-type or numbers only.
+is one `find | awk` scan of the DRM `fdinfo` files under `/proc` (~200 ms of mostly
+disk-cache I/O, off the render thread) plus a couple of tiny sysfs reads. The file
+list is piped from `find` (never passed as shell arguments), so the scan is unaffected
+by how many file descriptors are open system-wide. It pauses while the bar is hidden.
+If your GPU has little headroom, raise the interval (e.g. 5000 ms) and prefer the *bar*
+chart type or numbers only.
 
 ## VRAM notes
 

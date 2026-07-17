@@ -281,27 +281,35 @@ echo "MEMTOTAL=$(awk '/MemTotal/{print $2; exit}' /proc/meminfo 2>/dev/null)"
     // counters over wall time give accurate busy % (matching intel_gpu_top).
     // ======================================================================
     function fdinfoScript() {
-        return `awk '
-BEGINFILE { if (ERRNO) { nextfile } }
+        // File list is PIPED from find (not passed as awk args) so a large fd
+        // count can never blow past ARG_MAX and yield an empty scan. awk opens
+        // each file itself via getline.
+        return `find /proc -maxdepth 3 -path '/proc/[0-9]*/fdinfo/[0-9]*' -type f 2>/dev/null | awk '
 function tob(v,u){ if(u=="KiB")return v*1024; if(u=="MiB")return v*1048576; if(u=="GiB")return v*1073741824; return v+0 }
-FNR==1 { split(FILENAME,a,"/"); pid=a[3]; cur=""; skip=0; drv="" }
-/^drm-driver:/ { drv=$2; next }
-/^drm-client-id:/ {
-  cur=$2
-  if (drv!="i915" && drv!="xe") { skip=1; cur=""; next }
-  if (cur in done) { skip=1; next }
-  skip=0; done[cur]=1; pidOf[cur]=pid; next
+{
+  file=$0
+  split(file,a,"/"); pid=a[3]
+  cur=""; skip=0; drv=""
+  while ((getline < file) > 0) {
+    if ($1=="drm-driver:") { drv=$2; continue }
+    if ($1=="drm-client-id:") {
+      cur=$2
+      if (drv!="i915" && drv!="xe") { skip=1; cur=""; continue }
+      if (cur in done) { skip=1; continue }
+      skip=0; done[cur]=1; pidOf[cur]=pid; continue
+    }
+    if (skip || cur=="") continue
+    if ($1=="drm-engine-render:") { r[cur]=$2+0; continue }
+    if ($1=="drm-engine-copy:") { cp[cur]=$2+0; continue }
+    if ($1=="drm-engine-video:") { vd[cur]=$2+0; continue }
+    if ($1=="drm-engine-video-enhance:") { ve[cur]=$2+0; continue }
+    if ($1=="drm-engine-compute:") { co[cur]=$2+0; continue }
+    if ($1=="drm-engine-capacity-video:") { capv[cur]=$2+0; continue }
+    if ($1 ~ /^drm-resident-system/) { rs[cur]+=tob($2,$3); continue }
+    if ($1 ~ /^drm-resident-local/) { rl[cur]+=tob($2,$3); continue }
+  }
+  close(file)
 }
-skip { next }
-cur=="" { next }
-/^drm-engine-render:/ { r[cur]=$2+0; next }
-/^drm-engine-copy:/ { cp[cur]=$2+0; next }
-/^drm-engine-video:/ { vd[cur]=$2+0; next }
-/^drm-engine-video-enhance:/ { ve[cur]=$2+0; next }
-/^drm-engine-compute:/ { co[cur]=$2+0; next }
-/^drm-engine-capacity-video:/ { capv[cur]=$2+0; next }
-/^drm-resident-system/ { rs[cur]+=tob($2,$3); next }
-/^drm-resident-local/ { rl[cur]+=tob($2,$3); next }
 END {
   for (c in pidOf) {
     p=pidOf[c]; nm="?"; cf="/proc/" p "/comm"
@@ -309,8 +317,7 @@ END {
     close(cf)
     print c, p, r[c]+0, cp[c]+0, vd[c]+0, ve[c]+0, co[c]+0, (capv[c]?capv[c]:1), rs[c]+0, rl[c]+0, nm
   }
-}
-' /proc/[0-9]*/fdinfo/* 2>/dev/null`;
+}'`;
     }
 
     function _applyFdinfo(text) {
@@ -342,6 +349,15 @@ END {
             localTotal += rec.resLoc;
             if (rec.resLoc > 0) anyLocal = true;
             rows.push(rec);
+        }
+
+        // A scan with no GPU clients is never real (the compositor is always one)
+        // — treat it as a failed scan and hold the previous values rather than
+        // flashing everything to zero. The delta baseline is left untouched so the
+        // next good scan just measures over a slightly longer window.
+        if (rows.length === 0) {
+            fdinfoRan = true;
+            return;
         }
 
         // Aggregate engine busy over the interval.

@@ -2,7 +2,7 @@
   "id": "intelGpuMonitor",
   "name": "Intel GPU Monitor",
   "description": "Monitor Intel GPU usage, VRAM and temperature in the dank bar — read straight from the kernel (DRM fdinfo + sysfs), no root or extra tools — with configurable charts and a per-process detail view.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "rdannenbring",
   "icon": "developer_board",
   "type": "widget",
